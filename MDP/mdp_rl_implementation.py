@@ -2,6 +2,7 @@ from mdp import Action, MDP
 from simulator import Simulator
 from typing import Dict, List, Tuple
 import numpy as np
+from copy import deepcopy
 
 def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float=10 ** (-3)) -> np.ndarray:
     # Given the mdp, the initial utility of each state - U_init,
@@ -30,6 +31,30 @@ def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
     return policy
 
 
+actions_to_idx = {"UP":0, "DOWN":1, "RIGHT":2, "LEFT":3}
+
+idx_to_actions = ["UP", "DOWN", "RIGHT", "LEFT"]
+
+
+def transition(mdp, s_from, s_to, wanted_action):
+    if s_from in mdp.terminal_states:
+        return 0
+    actions = [action for action in actions_to_idx if mdp.step(s_from, action) == s_to]
+    prob = 0
+    for action in actions:
+        prob += mdp.transition_function[wanted_action][actions_to_idx[action]]
+    return prob
+
+def total_utility(mdp, U, state, action):
+    states = []
+    for i in range(mdp.num_row):
+        for j in range(mdp.num_col):
+            if mdp.board[i][j] == "WALL":
+                continue
+            states.append(i, j)
+    utilities = [transition(mdp, state, s_to, action)*U[s_to[0]][s_to[1]] for s_to in states]
+    return sum(utilities)
+
 def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
 
     # Given the mdp, and a policy
@@ -37,7 +62,41 @@ def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
     #
     # TODO:
     # ====== YOUR CODE: ======
-    raise NotImplementedError
+    states = []
+    for i in range(mdp.num_row):
+        for j in range(mdp.num_col):
+            if mdp.board[i][j] == "WALL":
+                continue
+            states.append(i, j)
+
+    rewards_list = []
+    for s in states:
+        reward_value = float(mdp.board[s[0]][s[1]])
+        rewards_list.append(reward_value)
+    rewards = np.array(rewards_list)
+
+    transitions_matrix = []
+    for s_from in states:
+        row = []
+        for s_to in states:
+            action = policy[s_from[0]][s_from[1]]
+            transition_prob = transition(mdp, s_from, s_to, action)
+            row.append(transition_prob)
+        transitions_matrix.append(row)
+    transitions_matrix = np.array(transitions_matrix)
+
+    identity_matrix = np.eye(len(rewards))
+    discounted_transition_matrix = mdp.gamma * transitions_matrix
+    matrix_to_invert = identity_matrix - discounted_transition_matrix
+    inverse_matrix = np.linalg.inv(matrix_to_invert)
+    utility = inverse_matrix @ rewards
+
+    U = deepcopy(policy)
+    for s, u in zip(states, utility.tolist()):
+        i, j = s
+        U[i][j] = u
+
+    return U
     # ========================
 
 
@@ -50,8 +109,27 @@ def policy_iteration(mdp: MDP, policy_init: np.ndarray) -> np.ndarray:
     optimal_policy = None
     # TODO:
     # ====== YOUR CODE: ======
-    raise NotImplementedError
-    # ========================
+    policy = deepcopy(policy_init)
+    changed = True
+    states = []
+    for i in range(mdp.num_row):
+        for j in range(mdp.num_col):
+            if mdp.board[i][j] == "WALL":
+                continue
+            states.append(i, j)
+
+    while changed:
+        U = policy_evaluation(mdp, policy)
+        changed = False
+
+        for s in states:
+            utilities = [total_utility(mdp, U, s, a) for a in actions_to_idx]
+            total = total_utility(mdp, U, s, policy[s[0]][s[1]])
+            if max(utilities) > total and not np.isclose(max(utilities), total, rtol=1e-6):
+                i, j = s
+                policy[i][j] = idx_to_actions[utilities.index(max(utilities))]
+                changed = True
+    optimal_policy = policy
     return optimal_policy
 
 
