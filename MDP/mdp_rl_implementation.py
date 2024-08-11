@@ -4,35 +4,87 @@ from typing import Dict, List, Tuple
 import numpy as np
 from copy import deepcopy
 
-def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float=10 ** (-3)) -> np.ndarray:
+
+def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -> np.ndarray:
     # Given the mdp, the initial utility of each state - U_init,
     #   and the upper limit - epsilon.
     # run the value iteration algorithm and
     # return: the utility for each of the MDP's state obtained at the end of the algorithms' run.
     #
-    
-    U_final = None
-    # TODO:
-    # ====== YOUR CODE: ======
-    raise NotImplementedError
-    # ========================
-    return U_final
+    U = deepcopy(U_init)
+    delta = float('inf')
+
+    while delta > epsilon * (1 - mdp.gamma) / mdp.gamma:
+        delta = 0
+        U_prev = deepcopy(U)
+
+        for i in range(mdp.num_row):
+            for j in range(mdp.num_col):
+                if mdp.board[i][j] == "WALL":
+                    continue
+
+                if (i, j) in mdp.terminal_states:
+                    U[i][j] = float(mdp.get_reward((i, j)))
+                    continue
+
+                max_utility = float('-inf')
+                for a in mdp.actions:
+                    action_probabilities = mdp.transition_function[a]
+                    expected_utility = 0
+
+                    for k, dir_action in enumerate(mdp.actions):
+                        next_state = mdp.step((i, j), dir_action)
+                        probability_next_state = action_probabilities[k]
+                        utility_next_state = U[next_state[0]][next_state[1]]
+                        expected_utility += probability_next_state * utility_next_state
+
+                    max_utility = max(max_utility, expected_utility)
+
+                U[i][j] = float(mdp.get_reward((i, j))) + mdp.gamma * max_utility
+                delta = max(delta, abs(U[i][j] - U_prev[i][j]))
+
+    return U
+
 
 def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
     # Given the mdp and the utility of each state - U (which satisfies the Belman equation)
     # return: the policy
     #
-    
-    policy = None
-    # TODO:
-    # ====== YOUR CODE: ====== 
-    raise NotImplementedError
-    # ========================
+    policy = np.full((mdp.num_row, mdp.num_col), None)
+
+    for i in range(mdp.num_row):
+        for j in range(mdp.num_col):
+            if mdp.board[i][j] == "WALL":
+                continue
+
+            if (i, j) in mdp.terminal_states:
+                policy[i][j] = 'TERMINAL'
+                continue
+
+            state = (i, j)
+            best_action = None
+            max_utility = float('-inf')
+
+            for action in mdp.actions:
+                expected_utility = 0
+                action_probabilities = mdp.transition_function[action]
+
+                for k, dir_action in enumerate(mdp.actions):
+                    next_state = mdp.step(state, dir_action)
+                    probability_next_state = action_probabilities[k]
+                    utility_next_state = U[next_state[0]][next_state[1]]
+                    expected_utility += probability_next_state * utility_next_state
+
+                if expected_utility > max_utility:
+                    max_utility = expected_utility
+                    best_action = action.value
+
+            policy[i][j] = best_action
+
     return policy
 
 
-actions_to_idx = {"UP":0, "DOWN":1, "RIGHT":2, "LEFT":3}
-
+actions_to_idx = {"UP": 0, "DOWN": 1, "RIGHT": 2, "LEFT": 3}
 idx_to_actions = ["UP", "DOWN", "RIGHT", "LEFT"]
 
 
@@ -45,22 +97,21 @@ def transition(mdp, s_from, s_to, wanted_action):
         prob += mdp.transition_function[wanted_action][actions_to_idx[action]]
     return prob
 
+
 def total_utility(mdp, U, state, action):
     states = []
     for i in range(mdp.num_row):
         for j in range(mdp.num_col):
             if mdp.board[i][j] == "WALL":
                 continue
-            states.append(i, j)
-    utilities = [transition(mdp, state, s_to, action)*U[s_to[0]][s_to[1]] for s_to in states]
+            states.append((i, j))
+    utilities = [transition(mdp, state, s_to, action) * U[s_to[0]][s_to[1]] for s_to in states]
     return sum(utilities)
 
-def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
 
+def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
     # Given the mdp, and a policy
     # return: the utility U(s) of each state s
-    #
-    # TODO:
     # ====== YOUR CODE: ======
     states = []
     for i in range(mdp.num_row):
@@ -101,13 +152,9 @@ def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
 
 
 def policy_iteration(mdp: MDP, policy_init: np.ndarray) -> np.ndarray:
-
     # Given the mdp, and the initial policy - policy_init
     # run the policy iteration algorithm
     # return: the optimal policy
-    #
-    optimal_policy = None
-    # TODO:
     # ====== YOUR CODE: ======
     policy = deepcopy(policy_init)
     changed = True
@@ -133,13 +180,12 @@ def policy_iteration(mdp: MDP, policy_init: np.ndarray) -> np.ndarray:
     return optimal_policy
 
 
-
 def adp_algorithm(
-    sim: Simulator, 
-    num_episodes: int,
-    num_rows: int = 3, 
-    num_cols: int = 4, 
-    actions: List[Action] = [Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT] 
+        sim: Simulator,
+        num_episodes: int,
+        num_rows: int = 3,
+        num_cols: int = 4,
+        actions: List[Action] = [Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT]
 ) -> Tuple[np.ndarray, Dict[Action, Dict[Action, float]]]:
     """
     Runs the ADP algorithm given the simulator, the number of rows and columns in the grid, 
@@ -155,7 +201,6 @@ def adp_algorithm(
     NOTE: the transition probabilities should be represented as a dictionary of dictionaries, so that given a desired action (the first key),
     its nested dicionary will contain the condional probabilites of all the actions. 
     """
-    
 
     transition_probs = None
     reward_matrix = None
@@ -163,4 +208,4 @@ def adp_algorithm(
     # ====== YOUR CODE: ======
     raise NotImplementedError
     # ========================
-    return reward_matrix, transition_probs 
+    return reward_matrix, transition_probs
