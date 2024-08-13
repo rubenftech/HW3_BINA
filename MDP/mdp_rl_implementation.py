@@ -213,8 +213,24 @@ def adp_algorithm(
 
     transition_probs = None
     reward_matrix = None
-    # TODO
+    num_of_action = None
     # ====== YOUR CODE: ======
-    raise NotImplementedError
-    # ========================
+    reward_matrix = np.zeros((num_rows, num_cols), dtype=int)
+    transition_probs = {action: {a: 0.0 for a in actions} for action in actions}
+    num_of_action = {a: 0 for a in actions}
+
+    for episode_index, episode_gen in enumerate(sim.replay(num_episodes)):
+        for step_index, step in enumerate(episode_gen):
+            state, reward, action, actual_action = step
+            reward_matrix[state] += 1
+            if action is None:
+                break
+            transition_probs[action][actual_action] += 1
+            num_of_action[action] += 1
+
+    for from_action, to_actions in transition_probs.items():
+        for to_action in to_actions:
+            tmp = (transition_probs[from_action][to_action] / num_of_action[from_action])
+            transition_probs[from_action][to_action] = tmp
+
     return reward_matrix, transition_probs
