@@ -5,6 +5,37 @@ import numpy as np
 from copy import deepcopy
 
 
+actions_to_idx = {"UP": 0, "DOWN": 1, "RIGHT": 2, "LEFT": 3}
+idx_to_actions = ["UP", "DOWN", "RIGHT", "LEFT"]
+
+
+def transition(mdp: MDP, s_from: Tuple[int, int], s_to: Tuple[int, int], action: Action) -> float:
+    if s_from in mdp.terminal_states:
+        return 0.0
+
+    prob = 0.0
+    action_enum = Action(action) if isinstance(action, str) else action
+
+    for wanted_action, move in mdp.actions.items():
+        new_state = (s_from[0] + move[0], s_from[1] + move[1])
+        if new_state == s_to:
+            action_idx = list(mdp.actions.keys()).index(action_enum)
+            prob += mdp.transition_function[wanted_action][action_idx]
+
+    return prob
+
+
+def total_utility(mdp, U, state, action):
+    states = []
+    for i in range(mdp.num_row):
+        for j in range(mdp.num_col):
+            if mdp.board[i][j] == "WALL":
+                continue
+            states.append((i, j))
+    utilities = [transition(mdp, state, s_to, action) * U[s_to[0]][s_to[1]] for s_to in states]
+    return sum(utilities)
+
+
 def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -> np.ndarray:
     # Given the mdp, the initial utility of each state - U_init,
     #   and the upper limit - epsilon.
@@ -84,30 +115,6 @@ def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
     return policy
 
 
-actions_to_idx = {"UP": 0, "DOWN": 1, "RIGHT": 2, "LEFT": 3}
-idx_to_actions = ["UP", "DOWN", "RIGHT", "LEFT"]
-
-
-def transition(mdp, s_from, s_to, wanted_action):
-    if s_from in mdp.terminal_states:
-        return 0
-    actions = [action for action in actions_to_idx if mdp.step(s_from, action) == s_to]
-    prob = 0
-    for action in actions:
-        prob += mdp.transition_function[wanted_action][actions_to_idx[action]]
-    return prob
-
-
-def total_utility(mdp, U, state, action):
-    states = []
-    for i in range(mdp.num_row):
-        for j in range(mdp.num_col):
-            if mdp.board[i][j] == "WALL":
-                continue
-            states.append((i, j))
-    utilities = [transition(mdp, state, s_to, action) * U[s_to[0]][s_to[1]] for s_to in states]
-    return sum(utilities)
-
 
 def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
     # Given the mdp, and a policy
@@ -135,6 +142,8 @@ def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
             row.append(transition_prob)
         transitions_matrix.append(row)
     transitions_matrix = np.array(transitions_matrix)
+    #transitions_matrix = np.array([[transition(mdp, s_from, s_to, policy[s_from[0]][s_from[1]])
+                             #for s_to in states] for s_from in states])
 
     identity_matrix = np.eye(len(rewards))
     discounted_transition_matrix = mdp.gamma * transitions_matrix
@@ -163,7 +172,7 @@ def policy_iteration(mdp: MDP, policy_init: np.ndarray) -> np.ndarray:
         for j in range(mdp.num_col):
             if mdp.board[i][j] == "WALL":
                 continue
-            states.append(i, j)
+            states.append((i, j))
 
     while changed:
         U = policy_evaluation(mdp, policy)
@@ -188,7 +197,7 @@ def adp_algorithm(
         actions: List[Action] = [Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT]
 ) -> Tuple[np.ndarray, Dict[Action, Dict[Action, float]]]:
     """
-    Runs the ADP algorithm given the simulator, the number of rows and columns in the grid, 
+    Runs the ADP algorithm given the simulator, the number of rows and columns in the grid,
     the list of actions, and the number of episodes.
 
     :param sim: The simulator instance.
@@ -197,15 +206,31 @@ def adp_algorithm(
     :param actions: List of possible actions (default is [Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT]).
     :param num_episodes: Number of episodes to run the simulation (default is 10).
     :return: A tuple containing the reward matrix and the transition probabilities.
-    
+
     NOTE: the transition probabilities should be represented as a dictionary of dictionaries, so that given a desired action (the first key),
-    its nested dicionary will contain the condional probabilites of all the actions. 
+    its nested dicionary will contain the condional probabilites of all the actions.
     """
 
     transition_probs = None
     reward_matrix = None
-    # TODO
+    num_of_action = None
     # ====== YOUR CODE: ======
-    raise NotImplementedError
-    # ========================
+    reward_matrix = np.zeros((num_rows, num_cols), dtype=int)
+    transition_probs = {action: {a: 0.0 for a in actions} for action in actions}
+    num_of_action = {a: 0 for a in actions}
+
+    for episode_index, episode_gen in enumerate(sim.replay(num_episodes)):
+        for step_index, step in enumerate(episode_gen):
+            state, reward, action, actual_action = step
+            reward_matrix[state] += 1
+            if action is None:
+                break
+            transition_probs[action][actual_action] += 1
+            num_of_action[action] += 1
+
+    for from_action, to_actions in transition_probs.items():
+        for to_action in to_actions:
+            tmp = (transition_probs[from_action][to_action] / num_of_action[from_action])
+            transition_probs[from_action][to_action] = tmp
+
     return reward_matrix, transition_probs
