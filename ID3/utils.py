@@ -15,7 +15,7 @@ from typing import List, Tuple
 ========================================================================
 """
 
-ID = 123456789  # TODO: change it to your personal ID
+ID = 140087032
 random_gen = RandomState(seed=ID)
 print_formatted_values = False
 
@@ -33,14 +33,11 @@ def accuracy(y: np.array, y_pred: np.array)-> float:
     :param y_pred: Predictions vector of shape (N,)
     :return: The prediction accuracy as a fraction.
     """
-    # TODO: Calculate prediction accuracy. Don't use an explicit loop.
+    # Calculate prediction accuracy. Don't use an explicit loop.
 
     assert y.shape == y_pred.shape
     assert y.ndim == 1
-    accuracy_val = None
-    # ====== YOUR CODE: ======
-    raise NotImplementedError
-    # ========================
+    accuracy_val = np.mean(y == y_pred)
 
     return accuracy_val
 
@@ -54,15 +51,16 @@ def l2_dist(x1: np.array, x2: np.array):
     :return: A distance matrix of shape (N1, N2) where the entry i, j
     represents the distance between x1 sample i and x2 sample j.
     """
-    # TODO:
     #  Implement L2-distance calculation efficiently as possible.
     #  Note: Use only basic numpy operations, no external code.
 
-    dists = None
+    # Calculate the L2 distance using broadcasting and vectorized operations
+    x1_squared = np.sum(x1 ** 2, axis=1).reshape(-1, 1)  # Shape (N1, 1)
+    x2_squared = np.sum(x2 ** 2, axis=1).reshape(1, -1)  # Shape (1, N2)
+    cross_term = np.dot(x1, x2.T)  # Shape (N1, N2)
 
-    # ====== YOUR CODE: ======
-    raise NotImplementedError
-    # ========================
+    # L2 distance formula: ||x1 - x2||^2 = ||x1||^2 + ||x2||^2 - 2*x1*x2
+    dists = np.sqrt(x1_squared + x2_squared - 2 * cross_term)
 
     return dists
 

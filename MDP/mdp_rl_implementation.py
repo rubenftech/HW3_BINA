@@ -118,7 +118,7 @@ def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
         for j in range(mdp.num_col):
             if mdp.board[i][j] == "WALL":
                 continue
-            states.append(i, j)
+            states.append((i, j))
 
     rewards_list = []
     for s in states:
