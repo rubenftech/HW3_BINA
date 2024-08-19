@@ -115,45 +115,64 @@ def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
     return policy
 
 
-def policy_evaluation(mdp: MDP, policy: np.ndarray, epsilon: float = 10 ** (-3)) -> np.ndarray:
+import numpy as np
+
+
+def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
     """
-    Given the mdp, and a policy
-    return: the utility U(s) of each state s
+    Given the MDP and a policy, calculate the utility U(s) of each state s by solving the system of linear equations.
+
+    :param mdp: The Markov Decision Process.
+    :param policy: The policy to evaluate.
+    :return: The utility of each state.
     """
-    U = np.zeros((mdp.num_row, mdp.num_col))
-    delta = float('inf')
+    num_states = mdp.num_row * mdp.num_col
+    R = np.zeros(num_states)  # Rewards vector
+    P = np.zeros((num_states, num_states))  # Transition probability matrix
 
-    while delta > epsilon:
-        delta = 0
-        U_prev = deepcopy(U)
+    # Create a mapping from (i, j) to a single index for the matrices
+    state_to_index = {}
+    index_to_state = {}
+    idx = 0
+    for i in range(mdp.num_row):
+        for j in range(mdp.num_col):
+            if mdp.board[i][j] != "WALL":
+                state_to_index[(i, j)] = idx
+                index_to_state[idx] = (i, j)
+                idx += 1
 
-        for i in range(mdp.num_row):
-            for j in range(mdp.num_col):
-                if mdp.board[i][j] == "WALL":
-                    continue
+    # Fill the rewards vector and the transition matrix
+    for (i, j), idx in state_to_index.items():
+        state = (i, j)
+        R[idx] = mdp.get_reward(state)
 
-                if (i, j) in mdp.terminal_states:
-                    U[i][j] = float(mdp.get_reward((i, j)))
-                    continue
+        if state in mdp.terminal_states:
+            P[idx, idx] = 1.0  # Terminal states only transition to themselves
+        else:
+            action = policy[i][j]  # Action chosen by the policy
+            if isinstance(action, str):
+                action = Action(action)  # Ensure it's an Action enum
 
-                # Convert the policy action to an Action object
-                action = policy[i][j]
-                if isinstance(action, str):
-                    action = Action(action)
+            # Get the transition probabilities for the given action
+            action_probabilities = mdp.transition_function[action]
 
-                action_probabilities = mdp.transition_function[action]
-                expected_utility = 0
+            for k, dir_action in enumerate(mdp.actions):
+                next_state = mdp.step(state, dir_action)
+                if next_state in state_to_index:
+                    next_idx = state_to_index[next_state]
+                    P[idx, next_idx] += action_probabilities[k]
 
-                for k, dir_action in enumerate(mdp.actions):
-                    next_state = mdp.step((i, j), dir_action)
-                    probability_next_state = action_probabilities[k]
-                    utility_next_state = U_prev[next_state[0]][next_state[1]]
-                    expected_utility += probability_next_state * utility_next_state
+    # Solve the system of linear equations (I - gamma * P) * U = R
+    I = np.eye(num_states)
+    A = I - mdp.gamma * P
+    U = np.linalg.solve(A, R)
 
-                U[i][j] = float(mdp.get_reward((i, j))) + mdp.gamma * expected_utility
-                delta = max(delta, abs(U[i][j] - U_prev[i][j]))
+    # Reshape U back to the grid form
+    U_grid = np.zeros((mdp.num_row, mdp.num_col))
+    for (i, j), idx in state_to_index.items():
+        U_grid[i][j] = U[idx]
 
-    return U
+    return U_grid
 
 
 def policy_iteration(mdp: MDP, policy_init: np.ndarray) -> np.ndarray:
