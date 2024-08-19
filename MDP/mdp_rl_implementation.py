@@ -115,49 +115,45 @@ def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
     return policy
 
 
+def policy_evaluation(mdp: MDP, policy: np.ndarray, epsilon: float = 10 ** (-3)) -> np.ndarray:
+    """
+    Given the mdp, and a policy
+    return: the utility U(s) of each state s
+    """
+    U = np.zeros((mdp.num_row, mdp.num_col))
+    delta = float('inf')
 
-def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
-    # Given the mdp, and a policy
-    # return: the utility U(s) of each state s
-    # ====== YOUR CODE: ======
-    states = []
-    for i in range(mdp.num_row):
-        for j in range(mdp.num_col):
-            if mdp.board[i][j] == "WALL":
-                continue
-            states.append((i, j))
+    while delta > epsilon:
+        delta = 0
+        U_prev = deepcopy(U)
 
-    rewards_list = []
-    for s in states:
-        reward_value = float(mdp.board[s[0]][s[1]])
-        rewards_list.append(reward_value)
-    rewards = np.array(rewards_list)
+        for i in range(mdp.num_row):
+            for j in range(mdp.num_col):
+                if mdp.board[i][j] == "WALL":
+                    continue
 
-    transitions_matrix = []
-    for s_from in states:
-        row = []
-        for s_to in states:
-            action = policy[s_from[0]][s_from[1]]
-            transition_prob = transition(mdp, s_from, s_to, action)
-            row.append(transition_prob)
-        transitions_matrix.append(row)
-    transitions_matrix = np.array(transitions_matrix)
-    #transitions_matrix = np.array([[transition(mdp, s_from, s_to, policy[s_from[0]][s_from[1]])
-                             #for s_to in states] for s_from in states])
+                if (i, j) in mdp.terminal_states:
+                    U[i][j] = float(mdp.get_reward((i, j)))
+                    continue
 
-    identity_matrix = np.eye(len(rewards))
-    discounted_transition_matrix = mdp.gamma * transitions_matrix
-    matrix_to_invert = identity_matrix - discounted_transition_matrix
-    inverse_matrix = np.linalg.inv(matrix_to_invert)
-    utility = inverse_matrix @ rewards
+                # Convert the policy action to an Action object
+                action = policy[i][j]
+                if isinstance(action, str):
+                    action = Action(action)
 
-    U = deepcopy(policy)
-    for s, u in zip(states, utility.tolist()):
-        i, j = s
-        U[i][j] = u
+                action_probabilities = mdp.transition_function[action]
+                expected_utility = 0
+
+                for k, dir_action in enumerate(mdp.actions):
+                    next_state = mdp.step((i, j), dir_action)
+                    probability_next_state = action_probabilities[k]
+                    utility_next_state = U_prev[next_state[0]][next_state[1]]
+                    expected_utility += probability_next_state * utility_next_state
+
+                U[i][j] = float(mdp.get_reward((i, j))) + mdp.gamma * expected_utility
+                delta = max(delta, abs(U[i][j] - U_prev[i][j]))
 
     return U
-    # ========================
 
 
 def policy_iteration(mdp: MDP, policy_init: np.ndarray) -> np.ndarray:
