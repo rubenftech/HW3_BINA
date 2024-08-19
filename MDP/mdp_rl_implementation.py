@@ -37,11 +37,6 @@ def total_utility(mdp, U, state, action):
 
 
 def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -> np.ndarray:
-    # Given the mdp, the initial utility of each state - U_init,
-    #   and the upper limit - epsilon.
-    # run the value iteration algorithm and
-    # return: the utility for each of the MDP's state obtained at the end of the algorithms' run.
-    #
     U = deepcopy(U_init)
     delta = float('inf')
 
@@ -52,7 +47,6 @@ def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -
         for i in range(mdp.num_row):
             for j in range(mdp.num_col):
                 if mdp.board[i][j] == "WALL":
-                    U[i][j] = None
                     continue
 
                 if (i, j) in mdp.terminal_states:
@@ -79,9 +73,6 @@ def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -
 
 
 def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
-    # Given the mdp and the utility of each state - U (which satisfies the Belman equation)
-    # return: the policy
-    #
     policy = np.full((mdp.num_row, mdp.num_col), None)
 
     for i in range(mdp.num_row):
@@ -116,10 +107,8 @@ def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
     return policy
 
 
+
 def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
-    # Given the mdp, and a policy
-    # return: the utility U(s) of each state s
-    # ====== YOUR CODE: ======
     states = []
     for i in range(mdp.num_row):
         for j in range(mdp.num_col):
@@ -142,8 +131,6 @@ def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
             row.append(transition_prob)
         transitions_matrix.append(row)
     transitions_matrix = np.array(transitions_matrix)
-    #transitions_matrix = np.array([[transition(mdp, s_from, s_to, policy[s_from[0]][s_from[1]])
-                             #for s_to in states] for s_from in states])
 
     identity_matrix = np.eye(len(rewards))
     discounted_transition_matrix = mdp.gamma * transitions_matrix
@@ -158,18 +145,14 @@ def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
 
     return U
 
+
 def policy_iteration(mdp: MDP, policy_init: np.ndarray) -> np.ndarray:
-    # Given the mdp, and the initial policy - policy_init
-    # run the policy iteration algorithm
-    # return: the optimal policy
-    # ====== YOUR CODE: ======
     policy = deepcopy(policy_init)
     changed = True
     states = []
     for i in range(mdp.num_row):
         for j in range(mdp.num_col):
             if mdp.board[i][j] == "WALL":
-                policy[i][j]= None
                 continue
             states.append((i, j))
 
@@ -210,18 +193,14 @@ def adp_algorithm(
     its nested dicionary will contain the condional probabilites of all the actions.
     """
 
-    transition_probs = None
-    reward_matrix = None
-    num_of_action = None
-    # ====== YOUR CODE: ======
-    reward_matrix = np.zeros((num_rows, num_cols), dtype=int)
+    reward_matrix = np.zeros((num_rows, num_cols), dtype=float)
     transition_probs = {action: {a: 0.0 for a in actions} for action in actions}
     num_of_action = {a: 0 for a in actions}
 
     for episode_index, episode_gen in enumerate(sim.replay(num_episodes)):
         for step_index, step in enumerate(episode_gen):
             state, reward, action, actual_action = step
-            reward_matrix[state] += 1
+            reward_matrix[state] = reward
             if action is None:
                 break
             transition_probs[action][actual_action] += 1
