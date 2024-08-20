@@ -12,16 +12,14 @@ idx_to_actions = ["UP", "DOWN", "RIGHT", "LEFT"]
 def transition(mdp: MDP, s_from: Tuple[int, int], s_to: Tuple[int, int], action: Action) -> float:
     if s_from in mdp.terminal_states:
         return 0.0
-
+    action = Action(action)
     prob = 0.0
-    action_enum = Action(action) if isinstance(action, str) else action
 
     for wanted_action, move in mdp.actions.items():
-        new_state = (s_from[0] + move[0], s_from[1] + move[1])
+        new_state = mdp.step(s_from , wanted_action)
         if new_state == s_to:
-            action_idx = list(mdp.actions.keys()).index(action_enum)
-            prob += mdp.transition_function[wanted_action][action_idx]
-
+            action_idx = list(mdp.actions.keys()).index(wanted_action)
+            prob += mdp.transition_function[action][action_idx]
     return prob
 
 
@@ -127,7 +125,7 @@ def policy_evaluation(mdp: MDP, policy: np.ndarray) -> np.ndarray:
         row = []
         for s_to in states:
             action = policy[s_from[0]][s_from[1]]
-            transition_prob = transition(mdp, s_from, s_to, action)
+            transition_prob = 0 if s_from in mdp.terminal_states else transition(mdp, s_from, s_to, action)
             row.append(transition_prob)
         transitions_matrix.append(row)
     transitions_matrix = np.array(transitions_matrix)
@@ -208,7 +206,8 @@ def adp_algorithm(
 
     for from_action, to_actions in transition_probs.items():
         for to_action in to_actions:
-            tmp = (transition_probs[from_action][to_action] / num_of_action[from_action])
-            transition_probs[from_action][to_action] = tmp
+            if num_of_action[from_action] != 0:
+                tmp = (transition_probs[from_action][to_action] / num_of_action[from_action])
+                transition_probs[from_action][to_action] = tmp
 
     return reward_matrix, transition_probs
