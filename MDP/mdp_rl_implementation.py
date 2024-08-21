@@ -34,9 +34,14 @@ def total_utility(mdp, U, state, action):
     return sum(utilities)
 
 
-def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -> np.ndarray:
+
+
+def value_iteration(mdp: MDP, U_init: list, epsilon: float = 10 ** (-3)) -> list:
     U = deepcopy(U_init)
     delta = float('inf')
+
+    if all(all(val == 0 for val in row if val is not None) for row in U):
+        U = [[-0.1 if val == 0 else val for val in row] for row in U]
 
     while delta > epsilon * (1 - mdp.gamma) / mdp.gamma:
         delta = 0
@@ -45,6 +50,7 @@ def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -
         for i in range(mdp.num_row):
             for j in range(mdp.num_col):
                 if mdp.board[i][j] == "WALL":
+                    U[i][j] = None
                     continue
 
                 if (i, j) in mdp.terminal_states:
@@ -52,20 +58,21 @@ def value_iteration(mdp: MDP, U_init: np.ndarray, epsilon: float = 10 ** (-3)) -
                     continue
 
                 max_utility = float('-inf')
-                for a in mdp.actions:
-                    action_probabilities = mdp.transition_function[a]
+                for action in mdp.actions:
                     expected_utility = 0
 
                     for k, dir_action in enumerate(mdp.actions):
                         next_state = mdp.step((i, j), dir_action)
-                        probability_next_state = action_probabilities[k]
-                        utility_next_state = U[next_state[0]][next_state[1]]
-                        expected_utility += probability_next_state * utility_next_state
+                        probability_next_state = mdp.transition_function[action][k]
+                        if next_state is not None and U_prev[next_state[0]][next_state[1]] is not None:
+                            utility_next_state = U_prev[next_state[0]][next_state[1]]
+                            expected_utility += probability_next_state * utility_next_state
 
                     max_utility = max(max_utility, expected_utility)
 
-                U[i][j] = float(mdp.get_reward((i, j))) + mdp.gamma * max_utility
-                delta = max(delta, abs(U[i][j] - U_prev[i][j]))
+                new_utility = float(mdp.get_reward((i, j))) + mdp.gamma * max_utility
+                delta = max(delta, abs(new_utility - U[i][j]))
+                U[i][j] = new_utility
 
     return U
 
@@ -79,7 +86,7 @@ def get_policy(mdp: MDP, U: np.ndarray) -> np.ndarray:
                 continue
 
             if (i, j) in mdp.terminal_states:
-                policy[i][j] = 'TERMINAL'
+                policy[i][j] = None
                 continue
 
             state = (i, j)
